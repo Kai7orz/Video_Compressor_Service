@@ -8,9 +8,33 @@ import (
 	"os"
 	"fmt"
 	"strconv"
-	
+	"os/exec"
+	"encoding/json"
+	"reflect"
 )
 
+type MyCommand struct{
+	Command []string 
+	Option []string 
+	Ope []string 
+	Output []string 
+}
+
+
+func doFfmpeg(c MyCommand){
+	var cmdArray []string
+	cmdArray = append(cmdArray,c.Command[0])
+	for i:=0;i<len(c.Option);i++{
+		cmdArray=append(cmdArray,c.Option[i])
+		cmdArray=append(cmdArray,c.Ope[i])
+	}
+	cmdArray = append(cmdArray,c.Output[0])
+	fmt.Println("cmdArray:",cmdArray)
+	_, err := exec.Command(cmdArray[0], cmdArray[1:]...).Output()
+	if err != nil {
+		log.Println(err)
+	}
+}
 
 func sendComplete(conn net.Conn) {
 	defer conn.Close()
@@ -19,7 +43,7 @@ func sendComplete(conn net.Conn) {
 }
 
 
-func serverRead(conn net.Conn,id int) error{
+func serverRead(conn net.Conn,id int){
 	
 	var leftSize uint32	//残り読み込むべきデータサイズしたがってこの値でファイルの読み込みデータ数を管理するを管理する
 	const GB = 1024 * 1024 * 1024
@@ -59,7 +83,6 @@ func serverRead(conn net.Conn,id int) error{
 
 		fmt.Println("全データ数:",tmp)
 		log.Println("receive data from client ",n," bytes")
-		log.Println("buf",buf)
 
 		copy(mpBuffer[currentSize:currentSize+n],buf[:n])
 		currentSize += n
@@ -82,9 +105,25 @@ func serverRead(conn net.Conn,id int) error{
 		log.Fatal(err)
 	}
 
+	jsonData := `{
+		"command" : ["ffmpeg"],
+		"option":["-i","-ss","-c","-t"],
+		"ope":["output1.mp4","00:00:1.0","copy","00:00:5.0"],
+		"output":["c_output4.mp4"]
+	}`
+	fmt.Println(reflect.TypeOf(jsonData))
+	
+
+	var myCom MyCommand 
+	err = json.Unmarshal([]byte(jsonData),&myCom)
+	if err != nil{
+		fmt.Println(err)
+	}
+	
+	doFfmpeg(myCom) //ffmpegの実行
+
 	sendComplete(conn) //送信完了処理(コネクションの切断)
 
-	return nil
 
 }
 
